@@ -53,3 +53,4 @@ ENV/
 .spyderproject
 .ropeproject
 .idea/
+data/
