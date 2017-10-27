@@ -4,7 +4,6 @@ from collections import Counter, defaultdict
 from collections import OrderedDict
 
 import numpy as np
-from scipy import sparse
 
 try:
     from lxml import etree
@@ -144,8 +143,7 @@ class HamshahrySearcher(object):
             indexer[key] = i
         vocab_len = len(row_feature)
         bows = list(self.doc_bow_dict.values())
-        tf_matrix = sparse.csr_matrix(np.zeros((num_doc, vocab_len)))
-
+        tf_matrix = np.zeros((num_doc, vocab_len))
         for i, bow in enumerate(bows):
             print(i)
             for token in bow:
