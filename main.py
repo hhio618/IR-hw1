@@ -151,8 +151,11 @@ class HamshahrySearcher(object):
                 tf_idf[i][j] = bow[token]
 
         doc_freq = np.array(list(self.vocab_dict.values()))
+        print("doc freq")
         idf = np.log(num_doc / doc_freq)
+        print("idf")
         tf_idf = (1 + safe_log(tf_idf)) * idf
+        print("tf-idf")
         self.tf_idf_matrix = TFIDFMatrix(row_feature, list(self.doc_bow_dict.keys()), tf_idf, idf)
         print("TF-IDF calculated for all docs!")
 
