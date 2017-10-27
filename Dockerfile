@@ -16,7 +16,5 @@ RUN make all install JCC='python -m jcc' ANT=ant PYTHON=python NUM_FILES=8
 
 WORKDIR ..
 RUN rm -rf pylucene
-ADD . /code
-WORKDIR /code
-RUN pip install -r requirements.txt
-CMD ["python","main.py"]
+RUN pip install lxml
+RUN pip install numpy
