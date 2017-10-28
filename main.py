@@ -157,11 +157,13 @@ class HamshahrySearcher(object):
 
     def calculate_doc_vector(self, doc):
         row_feature = self.tf_idf_data.row_feature
-        tf = [0] * len(row_feature)
+        tf = []
         doc_tf_idf = self.docs_tf_idf[doc]
-        for token in doc_tf_idf:
-            idx = row_feature.index(token)
-            tf[idx] = doc_tf_idf[token]
+        for token in row_feature:
+            if token in doc_tf_idf:
+                tf.append(doc_tf_idf[token])
+            else:
+                tf.append(0)
         return np.array(tf)
 
     def search(self, query):
