@@ -171,10 +171,7 @@ class HamshahrySearcher(object):
         query_vector = self.calculate_query_vector(query)
         docs = np.array(self.tf_idf_data.column_docs)
         cosine_similarities = []
-        i = 0
         for doc in docs:
-            i += 1
-            print(i)
             doc_vector = self.calculate_doc_vector(doc)
             norm = (np.linalg.norm(query_vector) * np.linalg.norm(doc_vector))
             cosine_similarity = doc_vector.dot(query_vector) / norm
