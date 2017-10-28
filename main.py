@@ -2,7 +2,7 @@ import glob
 import re
 from collections import Counter, defaultdict
 from collections import OrderedDict
-
+from math import log10
 import numpy as np
 
 try:
@@ -55,7 +55,7 @@ def safe_log(x):
     return np.log10(x.clip(min=0.1))
 
 
-class TFIDFMatrix(object):
+class TFIDFData(object):
     def __init__(self, row_feature, column_docs, tf_idf, idf):
         self.row_feature, self.column_docs, self.tf_idf, self.idf = row_feature, column_docs, tf_idf, idf
 
@@ -73,11 +73,11 @@ class IndexResult(object):
 class HamshahrySearcher(object):
     def __init__(self, xml_files):
         self.tokenizer_regex = "[\n\r\s\.\?!;؛@%-؟:\,\،\+\=\[\]\<\>\(\)»«\{\}]+"
-        self.vocab_dict = defaultdict()
+        self.docs_tf_idf = defaultdict()
         self.doc_bow_dict = defaultdict()
         self.xml_files = xml_files
         # To be calculated
-        self.tf_idf_matrix = None
+        self.tf_idf_data = None
 
     def index(self):
         num_doc = 0
@@ -133,51 +133,53 @@ class HamshahrySearcher(object):
     def update_vocab_dict(self, BOW, doc_no):
         self.doc_bow_dict[doc_no] = Counter(BOW)
         for token in set(BOW):
-            self.vocab_dict[token] = self.vocab_dict.get(token, 0) + 1
+            self.docs_tf_idf[token] = self.docs_tf_idf.get(token, 0) + 1
 
     def calculate_corpus_tf_idf(self, num_doc):
-        row_feature = list(self.vocab_dict.keys())
-
-        indexer = defaultdict()
-        for i, key in enumerate(row_feature):
-            indexer[key] = i
-        vocab_len = len(row_feature)
-        bows = list(self.doc_bow_dict.values())
-        tf_idf = np.zeros((num_doc, vocab_len))
-        for i, bow in enumerate(bows):
-            print(i)
-            for token in bow:
-                j = indexer[token]
-                tf_idf[i][j] = bow[token]
-
-        doc_freq = np.array(list(self.vocab_dict.values()))
-        print("doc freq")
+        row_feature = list(self.docs_tf_idf.keys())
+        doc_freq = np.array(list(self.docs_tf_idf.values()))
         idf = np.log(num_doc / doc_freq)
-        print("idf")
-        tf_idf = (1 + np.log10(tf_idf)) * idf
-        print("tf-idf")
-        self.tf_idf_matrix = TFIDFMatrix(row_feature, list(self.doc_bow_dict.keys()), tf_idf, idf)
+        for DOCID in self.docs_tf_idf:
+            for item in self.docs_tf_idf[DOCID]:
+                self.docs_tf_idf[DOCID][item] = (1 + log10(self.docs_tf_idf[DOCID][item])) * idf[item]
+        self.tf_idf_data = TFIDFData(row_feature, list(self.doc_bow_dict.keys()), self.docs_tf_idf, idf)
         print("TF-IDF calculated for all docs!")
 
     def calculate_query_vector(self, query):
-        row_feature = self.tf_idf_matrix.row_feature
+        row_feature = self.tf_idf_data.row_feature
         tf = [0] * len(row_feature)
         for token in query.split():
             idx = row_feature.index(token)
             tf[idx] += 1
 
         tf = np.array(tf)
-        query_vector = (1 + safe_log(tf)) * self.tf_idf_matrix.idf
+        query_vector = (1 + safe_log(tf)) * self.tf_idf_data.idf
         return query_vector
 
+    def calculate_doc_vector(self, doc):
+        row_feature = self.tf_idf_data.row_feature
+        tf = [0] * len(row_feature)
+        doc_tf_idf = self.tf_idf_data.tf_idf[doc]
+        for token in doc_tf_idf:
+            idx = row_feature.index(token)
+            tf[idx] += doc_tf_idf[token]
+        return np.array(tf)
+
     def search(self, query):
+        # calculating query vector
         query_vector = self.calculate_query_vector(query)
-        docs = np.array(self.tf_idf_matrix.column_docs)
-        norm = (np.linalg.norm(query_vector) * np.linalg.norm(self.tf_idf_matrix.tf_idf, axis=1))
-        cosine_similarity = self.tf_idf_matrix.tf_idf.dot(query_vector) / norm
-        idx = cosine_similarity.argsort()[::-1]
+        docs = np.array(self.tf_idf_data.column_docs)
+        cosine_similarities = []
+        for doc in docs:
+            doc_vector = self.calculate_doc_vector(doc)
+            norm = (np.linalg.norm(query_vector) * np.linalg.norm(doc_vector, axis=1))
+            cosine_similarity = doc_vector.dot(query_vector) / norm
+            cosine_similarities.append(cosine_similarity)
+
+        cosine_similarities = np.array(cosine_similarities)
+        idx = cosine_similarities.argsort()[::-1]
         docs = docs[idx[:20]]
-        cosine_similarity = cosine_similarity[idx[:20]]
+        cosine_similarity = cosine_similarities[idx[:20]]
         for i in range(20):
             print("Query result(%d): %s , Similarity: %g" % (i + 1, docs[i], cosine_similarity[i]))
         return docs, cosine_similarity
@@ -196,7 +198,7 @@ if __name__ == '__main__':
     print("max_text_size", index_result.max_text_size)
     print("max_doc_no", index_result.max_doc_no)
     print("mean_text_size", index_result.mean_text_size)
-    print("Vocab size", searcher.vocab_dict.__len__())
+    print("Vocab size", searcher.docs_tf_idf.__len__())
     print("Query:", 'بازار بزرگ تهران')
     searcher.search('بازار بزرگ تهران')
     print("Overall time elapsed: ", (timeit.default_timer() - start_time))
